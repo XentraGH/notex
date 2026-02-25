@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NoteX Organizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#FAFAFA', fg: '#1A1A2E', muted: '#6B7280',
+                        accent: '#7C3AED', accentHover: '#6D28D9',
+                        card: '#FFFFFF', border: '#E5E7EB', sidebar: '#F9FAFB',
+                        hover: '#F3F4F6', success: '#10B981', warning: '#F59E0B', danger: '#EF4444'
+                    },
+                    fontFamily: { sans: ['DM Sans', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-bg font-sans text-fg min-h-screen">
+
+    <!-- Main App Container -->
+    <div id="app" class="flex h-screen overflow-hidden">
+        
+        <!-- Mobile Overlay -->
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black/30 z-30 lg:hidden hidden"></div>
+        
+        <!-- Sidebar -->
+        <aside id="sidebar" class="fixed lg:relative w-72 h-full bg-sidebar border-r border-border flex flex-col z-40 sidebar-transition -translate-x-full lg:translate-x-0">
+            
+            <div class="p-5 border-b border-border">
+                <div class="flex items-center gap-3">
+                    <img src="https://z-cdn-media.chatglm.cn/files/07000f4b-0e9e-442a-9664-e127e7b199c0.png?auth_key=1871948385-196f77d9b8f24857a6a6ada720a050e8-0-1c28be9fe74b5c4957cf672ad923db7e" alt="NoteX" class="w-10 h-10 rounded-lg shadow-sm object-contain">
+                    <div>
+                        <h1 class="font-bold text-lg text-fg">NoteX</h1>
+                        <p class="text-xs text-muted">Organizer</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4">
+                <button id="newNoteBtn" class="w-full py-2.5 bg-accent hover:bg-accentHover text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 focus-ring">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    New Note
+                </button>
+            </div>
+
+            <div class="px-4 pb-2">
+                <div class="relative">
+                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    <input type="text" id="searchInput" class="w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-card focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all text-sm" placeholder="Search notes...">
+                </div>
+            </div>
+
+            <div class="px-4 py-3 flex items-center justify-between">
+                <span class="text-xs font-semibold text-muted uppercase tracking-wider">Notes</span>
+                <span id="noteCount" class="text-xs font-medium text-muted bg-border px-2 py-0.5 rounded-full">0</span>
+            </div>
+
+            <div id="notesList" class="flex-1 overflow-y-auto px-2 pb-4"></div>
+
+            <div class="p-4 border-t border-border mt-auto">
+                <div class="flex items-center justify-center gap-2 text-muted">
+                    <span class="text-xs">NoteX by</span>
+                    <span class="font-bold text-sm">
+                        <span style="color:#2563EB">R</span><span style="color:#DC2626">d</span><span style="color:#CA8A04">e</span><span style="color:#16A34A">v</span>
+                    </span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col min-w-0 bg-bg">
+            
+            <!-- Editor View -->
+            <div id="editorView" class="flex-1 flex flex-col hidden">
+                
+                <header class="bg-card border-b border-border px-4 md:px-6 py-3 flex items-center gap-4">
+                    <button id="menuBtn" class="lg:hidden p-2 hover:bg-hover rounded-lg transition-colors focus-ring">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    </button>
+                    
+                    <input type="text" id="noteTitleInput" class="flex-1 text-xl font-semibold bg-transparent outline-none placeholder:text-muted border-none" placeholder="Untitled Note">
+                    
+                    <div class="flex items-center gap-1">
+                        <button id="copyBtn" class="p-2 hover:bg-hover rounded-lg transition-colors focus-ring" title="Copy content">
+                            <svg class="w-5 h-5 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                        </button>
+                        
+                        <!-- Export Button -->
+                        <button id="exportBtn" class="p-2 hover:bg-hover rounded-lg transition-colors focus-ring" title="Export Note">
+                            <svg class="w-5 h-5 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        </button>
+                        
+                        <button id="deleteBtn" class="p-2 hover:bg-danger/10 rounded-lg transition-colors focus-ring group" title="Delete note">
+                            <svg class="w-5 h-5 text-muted group-hover:text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Simple Toolbar -->
+                <div class="bg-card border-b border-border px-4 md:px-6 py-2 flex flex-wrap items-center gap-1">
+                    <div class="flex items-center gap-0.5">
+                        <button class="btn-toolbar p-2 focus-ring" data-command="bold" title="Bold (Ctrl+B)"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6z"/><path d="M6 12h9a4 4 0 014 4 4 4 0 01-4 4H6z"/></svg></button>
+                        <button class="btn-toolbar p-2 focus-ring" data-command="italic" title="Italic (Ctrl+I)"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg></button>
+                        <button class="btn-toolbar p-2 focus-ring" data-command="underline" title="Underline (Ctrl+U)"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 3v7a6 6 0 006 6 6 6 0 006-6V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg></button>
+                    </div>
+                    <div class="h-4 w-px bg-border mx-1"></div>
+                    <div class="flex items-center gap-0.5">
+                        <button class="btn-toolbar p-2 focus-ring" data-command="insertUnorderedList" title="Bullet List"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor"/><circle cx="4" cy="12" r="1.5" fill="currentColor"/><circle cx="4" cy="18" r="1.5" fill="currentColor"/></svg></button>
+                        <button class="btn-toolbar p-2 focus-ring" data-command="insertOrderedList" title="Numbered List"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><text x="2" y="8" font-size="8" fill="currentColor" font-weight="600">1</text><text x="2" y="14" font-size="8" fill="currentColor" font-weight="600">2</text><text x="2" y="20" font-size="8" fill="currentColor" font-weight="600">3</text></svg></button>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto bg-bg p-4 md:p-8">
+                    <div class="max-w-3xl mx-auto">
+                        <div class="bg-card rounded-xl border border-border shadow-sm p-6 md:p-10">
+                            <div id="editor" class="editor-content text-base text-fg" contenteditable="true" data-placeholder="Start writing your note..."></div>
+                        </div>
+                    </div>
+                </div>
+
+                <footer class="bg-card border-t border-border px-4 md:px-6 py-2.5 flex items-center justify-between text-xs">
+                    <div class="flex items-center gap-3">
+                        <span id="saveStatus" class="flex items-center gap-1.5 text-muted"><span class="w-1.5 h-1.5 rounded-full bg-success"></span>All changes saved</span>
+                    </div>
+                    <div class="flex items-center gap-4 text-muted">
+                        <span id="charCount">0 characters</span>
+                        <span id="wordCount">0 words</span>
+                    </div>
+                </footer>
+            </div>
+
+            <!-- Empty State View -->
+            <div id="emptyView" class="flex-1 flex flex-col items-center justify-center p-8 hidden">
+                <div class="text-center max-w-sm">
+                    <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-hover flex items-center justify-center">
+                        <svg class="w-10 h-10 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    </div>
+                    <h2 class="text-xl font-semibold mb-2">No Note Selected</h2>
+                    <p class="text-muted mb-6">Select a note from the sidebar or create a new one to start writing.</p>
+                    <button id="emptyNewNoteBtn" class="px-6 py-2.5 bg-accent hover:bg-accentHover text-white font-semibold rounded-lg transition-colors focus-ring">Create New Note</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-fg text-white px-5 py-3 rounded-xl shadow-lg transform translate-y-24 opacity-0 transition-all duration-300 z-50 flex items-center gap-3">
+        <svg id="toastIcon" class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        <span id="toastMessage">Message</span>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
