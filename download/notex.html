@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NoteX - Create and save your notes online</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #7c3aed;
+            --primary-dark: #6d28d9;
+            --bg: #f8fafc;
+            --sidebar: #ffffff;
+            --text: #1e293b;
+            --text-secondary: #64748b;
+            --border: #e2e8f0;
+            --danger: #ef4444;
+            --success: #22c55e;
+            --warning: #f59e0b;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        
+        /* Welcome Screen */
+        .welcome-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
+        .welcome-card { background: var(--sidebar); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 32px; max-width: 400px; width: 100%; text-align: center; }
+        .logo { width: 80px; height: 80px; margin: 0 auto 16px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); border-radius: 16px; display: flex; align-items: center; justify-content: center; color: white; font-size: 36px; font-weight: bold; }
+        .welcome-card h1 { font-size: 28px; margin-bottom: 8px; }
+        .welcome-card .tagline { color: var(--text-secondary); margin-bottom: 24px; }
+        .feature-list { text-align: left; margin-bottom: 24px; }
+        .feature-item { display: flex; align-items: center; gap: 12px; padding: 8px 0; color: var(--text-secondary); }
+        .feature-item svg { color: var(--primary); flex-shrink: 0; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-bottom: 8px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+        .btn-secondary:hover { background: var(--bg); }
+        .btn-text { background: transparent; color: var(--text-secondary); font-size: 13px; }
+        .btn-text:hover { color: var(--primary); }
+        
+        /* Auth Forms */
+        .form-group { margin-bottom: 16px; text-align: left; }
+        .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+        .form-group input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s; }
+        .form-group input:focus { border-color: var(--primary); }
+        
+        /* Dashboard */
+        .app-container { display: flex; min-height: 100vh; }
+        .sidebar { width: 270px; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; left: 0; top: 0; bottom: 0; }
+        .sidebar-header { padding: 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+        .sidebar-logo { width: 48px; height: 48px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px; }
+        .sidebar-title h2 { font-size: 16px; }
+        .sidebar-title p { font-size: 12px; color: var(--text-secondary); }
+        
+        /* New Note Button */
+        .new-note-btn { margin: 16px; padding: 10px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s; }
+        .new-note-btn:hover { background: var(--primary-dark); }
+        
+        /* Search */
+        .search-box { margin: 0 16px 16px; position: relative; }
+        .search-box input { width: 100%; padding: 10px 12px 10px 36px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; outline: none; }
+        .search-box svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); }
+        
+        /* Notes List */
+        .notes-section { flex: 1; overflow-y: auto; padding: 0 16px; }
+        .notes-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .notes-header span { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+        .notes-count { background: var(--bg); padding: 2px 8px; border-radius: 12px; font-size: 11px; color: var(--text-secondary); }
+        .note-item { padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; transition: background 0.2s; }
+        .note-item:hover { background: var(--bg); }
+        .note-item.active { background: #f3e8ff; border: 1px solid #e9d5ff; }
+        .note-item-title { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+        .note-item-title svg { color: var(--warning); width: 14px; height: 14px; }
+        .note-item-date { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+        
+        /* User Section */
+        .user-section { padding: 16px; border-top: 1px solid var(--border); }
+        .user-info { display: flex; align-items: center; gap: 12px; }
+        .user-avatar { width: 40px; height: 40px; border-radius: 10px; background: var(--bg); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .user-details { flex: 1; min-width: 0; }
+        .user-name { font-weight: 600; font-size: 14px; truncate: true; }
+        .user-username { font-size: 12px; color: var(--text-secondary); }
+        .user-actions { display: flex; gap: 4px; }
+        .icon-btn { width: 36px; height: 36px; border: none; background: transparent; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); transition: all 0.2s; }
+        .icon-btn:hover { background: var(--bg); color: var(--text); }
+        .icon-btn.danger:hover { background: #fef2f2; color: var(--danger); }
+        
+        /* Main Content */
+        .main-content { flex: 1; margin-left: 270px; display: flex; flex-direction: column; min-height: 100vh; }
+        
+        /* Note Editor */
+        .note-toolbar { padding: 16px 24px; background: var(--sidebar); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; }
+        .note-title-input { flex: 1; font-size: 20px; font-weight: 700; border: none; outline: none; background: transparent; }
+        .toolbar-actions { display: flex; gap: 4px; }
+        .note-content { flex: 1; padding: 24px; overflow-y: auto; }
+        .note-textarea { width: 100%; height: 100%; border: none; outline: none; font-size: 15px; line-height: 1.7; resize: none; background: transparent; font-family: inherit; }
+        
+        /* Empty State */
+        .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-secondary); }
+        .empty-state svg { margin-bottom: 16px; opacity: 0.5; }
+        .empty-state h3 { font-size: 18px; color: var(--text); margin-bottom: 8px; }
+        .empty-state p { margin-bottom: 16px; }
+        
+        /* Locked Note */
+        .locked-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .locked-state svg { margin-bottom: 16px; color: var(--text-secondary); }
+        
+        /* Modals */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal { background: var(--sidebar); border-radius: 12px; padding: 24px; width: 100%; max-width: 400px; margin: 16px; }
+        .modal h3 { font-size: 18px; margin-bottom: 8px; }
+        .modal p { color: var(--text-secondary); margin-bottom: 16px; }
+        .modal-actions { display: flex; gap: 8px; }
+        .modal-actions .btn { flex: 1; margin: 0; }
+        
+        /* Toast */
+        .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--text); color: white; padding: 12px 24px; border-radius: 8px; font-size: 13px; z-index: 2000; animation: slideUp 0.3s ease; }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        @keyframes slideUp { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+        
+        /* AI Chat */
+        .ai-btn { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); border: none; border-radius: 50%; color: white; cursor: pointer; box-shadow: 0 4px 12px rgba(124,58,237,0.4); display: flex; align-items: center; justify-content: center; transition: transform 0.2s; z-index: 100; }
+        .ai-btn:hover { transform: scale(1.1); }
+        .ai-panel { position: fixed; top: 0; right: 0; width: 400px; height: 100vh; background: var(--sidebar); border-left: 1px solid var(--border); display: flex; flex-direction: column; z-index: 100; }
+        .ai-panel.hidden { display: none; }
+        .ai-header { padding: 16px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; display: flex; align-items: center; justify-content: space-between; }
+        .ai-header-content { display: flex; align-items: center; gap: 12px; }
+        .ai-header h3 { font-size: 16px; }
+        .ai-header span { font-size: 11px; opacity: 0.7; }
+        .ai-messages { flex: 1; padding: 16px; overflow-y: auto; }
+        .ai-message { margin-bottom: 12px; padding: 12px 16px; border-radius: 12px; max-width: 85%; font-size: 14px; line-height: 1.5; }
+        .ai-message.user { background: var(--primary); color: white; margin-left: auto; border-bottom-right-radius: 4px; }
+        .ai-message.assistant { background: var(--bg); border-bottom-left-radius: 4px; }
+        .ai-input-area { padding: 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+        .ai-input-area input { flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; outline: none; }
+        .ai-input-area button { padding: 10px 16px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        
+        /* Settings */
+        .settings-panel { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+        .settings-panel.hidden { display: none; }
+        .settings-content { background: var(--sidebar); border-radius: 12px; width: 100%; max-width: 450px; max-height: 90vh; overflow-y: auto; margin: 16px; }
+        .settings-header { padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .settings-header h3 { font-size: 18px; }
+        .settings-body { padding: 16px; }
+        .avatar-upload { display: flex; justify-content: center; margin-bottom: 16px; }
+        .avatar-upload label { cursor: pointer; position: relative; }
+        .avatar-upload .avatar { width: 96px; height: 96px; border-radius: 50%; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .avatar-upload .avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .avatar-upload .edit-icon { position: absolute; bottom: 0; right: 0; width: 32px; height: 32px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; }
+        .danger-zone { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); }
+        .danger-zone h4 { color: var(--danger); font-size: 14px; margin-bottom: 12px; }
+        
+        /* Improve Modal */
+        .improve-modal { max-width: 500px; }
+        .improve-modal .custom-prompt { margin-bottom: 16px; }
+        .improve-modal .custom-prompt label { font-size: 11px; color: var(--text-secondary); font-weight: 600; display: block; margin-bottom: 8px; }
+        .improve-modal .custom-prompt input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; outline: none; }
+        .improve-result { background: var(--bg); border-radius: 8px; padding: 16px; min-height: 120px; }
+        .improve-result p { font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+        
+        /* Mobile */
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); z-index: 100; }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; }
+            .mobile-header { display: flex; position: sticky; top: 0; background: var(--sidebar); border-bottom: 1px solid var(--border); padding: 12px 16px; align-items: center; justify-content: space-between; z-index: 50; }
+            .mobile-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--sidebar); border-top: 1px solid var(--border); padding: 8px 16px; display: flex; justify-content: space-around; align-items: center; z-index: 50; }
+            .mobile-nav .nav-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px; color: var(--text-secondary); background: none; border: none; cursor: pointer; }
+            .mobile-nav .nav-btn.active { color: var(--primary); }
+            .mobile-nav .create-btn { width: 56px; height: 56px; background: var(--primary); border-radius: 16px; color: white; margin-top: -24px; box-shadow: 0 4px 12px rgba(124,58,237,0.4); }
+            .ai-btn { bottom: 80px; }
+            .ai-panel { width: 100%; }
+        }
+        
+        .hidden { display: none !important; }
+        
+        /* Online/Offline indicator */
+        .status-indicator { position: fixed; bottom: 8px; left: 8px; padding: 4px 12px; border-radius: 16px; font-size: 11px; font-weight: 600; z-index: 100; display: flex; align-items: center; gap: 6px; }
+        .status-indicator.online { background: #dcfce7; color: #166534; }
+        .status-indicator.offline { background: #fef3c7; color: #92400e; }
+        .status-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .status-indicator.online .status-dot { background: var(--success); }
+        .status-indicator.offline .status-dot { background: var(--warning); }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+
+    <script>
+        // ==================== APP STATE ====================
+        const state = {
+            view: 'welcome', // welcome, login, signup, dashboard
+            user: null,
+            notes: [],
+            selectedNote: null,
+            isNoteUnlocked: false,
+            notifications: [],
+            isGuest: false,
+            showAI: false,
+            chatMessages: [],
+            chatInput: '',
+            isChatLoading: false,
+            streamingText: '',
+            showSettings: false,
+            showLockModal: false,
+            showUnlockModal: false,
+            showDeleteConfirm: false,
+            showShareModal: false,
+            showImproveModal: false,
+            improvedContent: '',
+            isImproving: false,
+            improveCustomPrompt: '',
+            lockPassword: '',
+            unlockPassword: '',
+            searchQuery: '',
+            loginForm: { username: '', password: '' },
+            signupForm: { name: '', username: '', password: '', profilePicture: '' },
+            settingsForm: { name: '', username: '', profilePicture: '', defaultNoteName: 'Untitled Note', newPassword: '' },
+            isOnline: navigator.onLine
+        };
+
+        // ==================== API CONFIG ====================
+        const API_BASE = window.location.origin;
+        let saveTimeout = null;
+
+        // ==================== STORAGE ====================
+        function saveUser(user) {
+            state.user = user;
+            localStorage.setItem('notex_user', JSON.stringify(user));
+        }
+
+        function loadUser() {
+            const saved = localStorage.getItem('notex_user');
+            if (saved) {
+                try {
+                    state.user = JSON.parse(saved);
+                    state.view = 'dashboard';
+                } catch {
+                    localStorage.removeItem('notex_user');
+                }
+            }
+        }
+
+        function saveGuestNotes() {
+            if (state.isGuest) {
+                localStorage.setItem('notex_guest_notes', JSON.stringify(state.notes));
+            }
+        }
+
+        function loadGuestNotes() {
+            const saved = localStorage.getItem('notex_guest_notes');
+            if (saved) {
+                try {
+                    state.notes = JSON.parse(saved);
+                } catch {}
+            }
+        }
+
+        // ==================== API CALLS ====================
+        async function apiCall(endpoint, options = {}) {
+            try {
+                const res = await fetch(API_BASE + endpoint, {
+                    ...options,
+                    headers: { 'Content-Type': 'application/json', ...options.headers },
+                    body: options.body ? JSON.stringify(options.body) : undefined
+                });
+                const data = await res.json();
+                return { ok: res.ok, data };
+            } catch (error) {
+                return { ok: false, error: error.message };
+            }
+        }
+
+        async function fetchNotes() {
+            if (state.isGuest || !state.user) return;
+            const { ok, data } = await apiCall(`/api/notes?authorId=${state.user.id}`);
+            if (ok) state.notes = data.notes || [];
+        }
+
+        async function fetchNotifications() {
+            if (state.isGuest || !state.user) return;
+            const { ok, data } = await apiCall(`/api/notifications?userId=${state.user.id}`);
+            if (ok) state.notifications = data.notifications || [];
+        }
+
+        async function createNote() {
+            if (state.isGuest) {
+                if (state.notes.length >= 7) {
+                    showToast('Guests can only create 7 notes', 'error');
+                    return;
+                }
+                const note = {
+                    id: 'guest-' + Date.now(),
+                    title: 'Untitled Note',
+                    content: '',
+                    isLocked: false,
+                    password: null,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    authorId: 'guest'
+                };
+                state.notes.unshift(note);
+                state.selectedNote = note;
+                state.isNoteUnlocked = true;
+                saveGuestNotes();
+                render();
+                showToast('Note created');
+                return;
+            }
+            
+            if (!state.user) return;
+            const { ok, data } = await apiCall('/api/notes', { method: 'POST', body: { authorId: state.user.id } });
+            if (ok) {
+                state.notes.unshift(data.note);
+                state.selectedNote = data.note;
+                state.isNoteUnlocked = true;
+                render();
+                showToast('Note created');
+            }
+        }
+
+        async function saveNote() {
+            if (!state.selectedNote) return;
+            if (state.isGuest) {
+                saveGuestNotes();
+                return;
+            }
+            await apiCall(`/api/notes/${state.selectedNote.id}`, {
+                method: 'PUT',
+                body: { title: state.selectedNote.title, content: state.selectedNote.content }
+            });
+        }
+
+        function debouncedSave() {
+            if (saveTimeout) clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(saveNote, 500);
+        }
+
+        async function deleteNote() {
+            if (!state.selectedNote) return;
+            if (state.isGuest || state.selectedNote.id.startsWith('guest-')) {
+                state.notes = state.notes.filter(n => n.id !== state.selectedNote.id);
+                state.selectedNote = null;
+                state.isNoteUnlocked = false;
+                state.showDeleteConfirm = false;
+                saveGuestNotes();
+                render();
+                showToast('Note deleted');
+                return;
+            }
+            const { ok } = await apiCall(`/api/notes/${state.selectedNote.id}`, { method: 'DELETE' });
+            if (ok) {
+                state.notes = state.notes.filter(n => n.id !== state.selectedNote.id);
+                state.selectedNote = null;
+                state.isNoteUnlocked = false;
+                state.showDeleteConfirm = false;
+                render();
+                showToast('Note deleted');
+            }
+        }
+
+        async function lockNote() {
+            if (!state.selectedNote || !state.lockPassword) return;
+            const { ok } = await apiCall(`/api/notes/${state.selectedNote.id}`, {
+                method: 'PUT',
+                body: { isLocked: true, password: state.lockPassword }
+            });
+            if (ok) {
+                state.selectedNote.isLocked = true;
+                state.showLockModal = false;
+                state.lockPassword = '';
+                render();
+                showToast('Note locked');
+            }
+        }
+
+        async function unlockNote() {
+            if (!state.selectedNote || !state.unlockPassword) return;
+            const { ok } = await apiCall(`/api/notes/${state.selectedNote.id}/unlock`, {
+                method: 'POST',
+                body: { password: state.unlockPassword }
+            });
+            if (ok) {
+                state.isNoteUnlocked = true;
+                state.showUnlockModal = false;
+                state.unlockPassword = '';
+                render();
+                showToast('Note unlocked');
+            } else {
+                showToast('Wrong password', 'error');
+            }
+        }
+
+        async function login() {
+            const { ok, data } = await apiCall('/api/auth/login', {
+                method: 'POST',
+                body: state.loginForm
+            });
+            if (ok) {
+                saveUser(data.user);
+                state.view = 'dashboard';
+                state.loginForm = { username: '', password: '' };
+                fetchNotes();
+                fetchNotifications();
+                render();
+                showToast(`Welcome back, ${data.user.name}!`);
+            } else {
+                showToast(data.error || 'Login failed', 'error');
+            }
+        }
+
+        async function signup() {
+            if (state.signupForm.password.length < 6) {
+                showToast('Password must be at least 6 characters', 'error');
+                return;
+            }
+            const { ok, data } = await apiCall('/api/auth/signup', {
+                method: 'POST',
+                body: state.signupForm
+            });
+            if (ok) {
+                saveUser(data.user);
+                state.view = 'dashboard';
+                state.signupForm = { name: '', username: '', password: '', profilePicture: '' };
+                render();
+                showToast('Account created!');
+            } else {
+                showToast(data.error || 'Signup failed', 'error');
+            }
+        }
+
+        async function updateSettings() {
+            if (!state.user) return;
+            const { ok, data } = await apiCall(`/api/user/settings/${state.user.id}`, {
+                method: 'PUT',
+                body: state.settingsForm
+            });
+            if (ok) {
+                saveUser(data.user);
+                state.showSettings = false;
+                render();
+                showToast('Settings saved');
+            } else {
+                showToast(data.error || 'Failed to save', 'error');
+            }
+        }
+
+        async function sendChatMessage() {
+            if (!state.chatInput.trim() || state.isChatLoading) return;
+            const message = state.chatInput.trim();
+            state.chatInput = '';
+            state.chatMessages.push({ role: 'user', content: message });
+            state.isChatLoading = true;
+            state.streamingText = '';
+            render();
+
+            const { ok, data } = await apiCall('/api/ai/chat', {
+                method: 'POST',
+                body: {
+                    messages: state.chatMessages.slice(0, -1).concat([{ role: 'user', content: message }]),
+                    context: state.selectedNote?.content || ''
+                }
+            });
+
+            if (ok) {
+                const fullText = data.message;
+                let displayText = '';
+                let i = 0;
+                
+                const streamChar = () => {
+                    if (i >= fullText.length) {
+                        state.chatMessages.push({ role: 'assistant', content: fullText });
+                        state.streamingText = '';
+                        state.isChatLoading = false;
+                        render();
+                        return;
+                    }
+                    displayText += fullText[i];
+                    state.streamingText = displayText;
+                    i++;
+                    render();
+                    setTimeout(streamChar, fullText[i-1] === ' ' ? 5 : 12 + Math.random() * 8);
+                };
+                streamChar();
+            } else {
+                state.isChatLoading = false;
+                showToast('AI request failed', 'error');
+                render();
+            }
+        }
+
+        async function improveNote() {
+            if (!state.selectedNote?.content) {
+                showToast('No content to improve', 'error');
+                return;
+            }
+            state.isImproving = true;
+            state.improvedContent = '';
+            state.showImproveModal = true;
+            render();
+
+            const { ok, data } = await apiCall('/api/ai/chat', {
+                method: 'POST',
+                body: {
+                    messages: [],
+                    context: state.selectedNote.content,
+                    action: 'improve',
+                    improvePrompt: state.improveCustomPrompt.trim() || undefined
+                }
+            });
+
+            if (ok) {
+                const fullText = data.message;
+                let displayText = '';
+                let i = 0;
+                
+                const streamChar = () => {
+                    if (i >= fullText.length) {
+                        state.isImproving = false;
+                        render();
+                        return;
+                    }
+                    displayText += fullText[i];
+                    state.improvedContent = displayText;
+                    i++;
+                    render();
+                    setTimeout(streamChar, fullText[i-1] === ' ' ? 3 : 8 + Math.random() * 6);
+                };
+                streamChar();
+            } else {
+                state.isImproving = false;
+                state.showImproveModal = false;
+                showToast('Failed to improve', 'error');
+                render();
+            }
+        }
+
+        function applyImprovedContent() {
+            if (!state.selectedNote || !state.improvedContent) return;
+            state.selectedNote.content = state.improvedContent;
+            state.showImproveModal = false;
+            state.improvedContent = '';
+            state.improveCustomPrompt = '';
+            debouncedSave();
+            render();
+            showToast('Content updated!');
+        }
+
+        // ==================== TOAST ====================
+        function showToast(message, type = 'success') {
+            const existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+            
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // ==================== RENDER ====================
+        function render() {
+            const app = document.getElementById('app');
+            
+            // Welcome Screen
+            if (state.view === 'welcome') {
+                app.innerHTML = `
+                    <div class="welcome-screen">
+                        <div class="welcome-card">
+                            <div class="logo">N</div>
+                            <h1>NoteX</h1>
+                            <p class="tagline">Create and save your notes online</p>
+                            <div class="feature-list">
+                                <div class="feature-item">
+                                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    <span>Create and edit notes</span>
+                                </div>
+                                <div class="feature-item">
+                                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                    <span>Lock notes with password</span>
+                                </div>
+                                <div class="feature-item">
+                                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+                                    <span>Share notes with others</span>
+                                </div>
+                                <div class="feature-item">
+                                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                                    <span>AI-powered NoteAI assistant</span>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" onclick="state.view='signup'; render();">Get Started</button>
+                            <button class="btn btn-secondary" onclick="state.view='login'; render();">I have an account</button>
+                            <button class="btn btn-text" onclick="state.isGuest=true; state.view='dashboard'; loadGuestNotes(); render();">Try as Guest</button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Login Screen
+            if (state.view === 'login') {
+                app.innerHTML = `
+                    <div class="welcome-screen">
+                        <div class="welcome-card">
+                            <div class="logo">N</div>
+                            <h1>Welcome Back</h1>
+                            <p class="tagline">Sign in to your account</p>
+                            <form onsubmit="event.preventDefault(); login();">
+                                <div class="form-group">
+                                    <label>Username</label>
+                                    <input type="text" value="${state.loginForm.username}" onchange="state.loginForm.username=this.value" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Password</label>
+                                    <input type="password" value="${state.loginForm.password}" onchange="state.loginForm.password=this.value" required>
+                                </div>
+                                <button class="btn btn-primary">Sign In</button>
+                            </form>
+                            <button class="btn btn-text" onclick="state.view='welcome'; render();">Back</button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Signup Screen
+            if (state.view === 'signup') {
+                app.innerHTML = `
+                    <div class="welcome-screen">
+                        <div class="welcome-card">
+                            <div class="logo">N</div>
+                            <h1>Create Account</h1>
+                            <p class="tagline">Join NoteX today</p>
+                            <form onsubmit="event.preventDefault(); signup();">
+                                <div class="form-group">
+                                    <label>Name</label>
+                                    <input type="text" value="${state.signupForm.name}" onchange="state.signupForm.name=this.value" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Username</label>
+                                    <input type="text" value="${state.signupForm.username}" onchange="state.signupForm.username=this.value" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Password</label>
+                                    <input type="password" value="${state.signupForm.password}" onchange="state.signupForm.password=this.value" required minlength="6">
+                                </div>
+                                <button class="btn btn-primary">Create Account</button>
+                            </form>
+                            <button class="btn btn-text" onclick="state.view='welcome'; render();">Back</button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Dashboard
+            const filteredNotes = state.notes.filter(n => 
+                n.title.toLowerCase().includes(state.searchQuery.toLowerCase())
+            );
+            
+            app.innerHTML = `
+                <div class="app-container">
+                    <!-- Sidebar -->
+                    <div class="sidebar">
+                        <div class="sidebar-header">
+                            <div class="sidebar-logo">N</div>
+                            <div class="sidebar-title">
+                                <h2>NoteX</h2>
+                                <p>${state.isGuest ? 'Guest Mode' : 'Simple note taker'}</p>
+                            </div>
+                        </div>
+                        
+                        <button class="new-note-btn" onclick="createNote()">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            New Note
+                        </button>
+                        
+                        <div class="search-box">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <input type="text" placeholder="Search notes..." value="${state.searchQuery}" oninput="state.searchQuery=this.value; render();">
+                        </div>
+                        
+                        <div class="notes-section">
+                            <div class="notes-header">
+                                <span>Notes</span>
+                                <span class="notes-count">${state.notes.length}</span>
+                            </div>
+                            ${filteredNotes.map(note => `
+                                <div class="note-item ${state.selectedNote?.id === note.id ? 'active' : ''}" onclick="state.selectedNote = state.notes.find(n => n.id === '${note.id}'); state.isNoteUnlocked = !state.selectedNote.isLocked; ${note.isLocked ? "if(state.selectedNote.isLocked) { state.isNoteUnlocked = false; state.showUnlockModal = true; }" : ''}; render();">
+                                    <div class="note-item-title">
+                                        ${note.isLocked ? '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>' : ''}
+                                        ${note.title}
+                                    </div>
+                                    <div class="note-item-date">${new Date(note.updatedAt).toLocaleDateString()}</div>
+                                </div>
+                            `).join('') || '<p style="text-align:center; color: var(--text-secondary); padding: 16px;">No notes yet</p>'}
+                        </div>
+                        
+                        <div class="user-section">
+                            ${state.isGuest ? `
+                                <div style="text-align: center;">
+                                    <div class="user-avatar" style="margin: 0 auto 8px; background: #f3e8ff;">
+                                        <svg width="20" height="20" fill="none" stroke="var(--primary)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                    </div>
+                                    <p style="font-size: 14px; font-weight: 600;">Guest Mode</p>
+                                    <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">${state.notes.length}/7 notes</p>
+                                    <button class="btn btn-primary" onclick="state.isGuest=false; state.view='signup'; render();">Sign Up</button>
+                                </div>
+                            ` : `
+                                <div class="user-info">
+                                    <div class="user-avatar">
+                                        ${state.user?.profilePicture ? `<img src="${state.user.profilePicture}" alt="">` : '<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>'}
+                                    </div>
+                                    <div class="user-details">
+                                        <div class="user-name">${state.user?.name || 'User'}</div>
+                                        <div class="user-username">@${state.user?.username || 'user'}</div>
+                                    </div>
+                                    <div class="user-actions">
+                                        <button class="icon-btn" onclick="state.settingsForm = { name: state.user?.name || '', username: state.user?.username || '', profilePicture: state.user?.profilePicture || '', defaultNoteName: state.user?.defaultNoteName || 'Untitled Note', newPassword: '' }; state.showSettings = true; render();" title="Settings">
+                                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                        </button>
+                                        <button class="icon-btn danger" onclick="localStorage.removeItem('notex_user'); state.user = null; state.notes = []; state.selectedNote = null; state.view = 'welcome'; render();" title="Logout">
+                                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                    
+                    <!-- Main Content -->
+                    <div class="main-content">
+                        ${state.selectedNote ? `
+                            <div class="note-toolbar">
+                                <input type="text" class="note-title-input" value="${state.selectedNote.title}" onchange="state.selectedNote.title = this.value; state.selectedNote.updatedAt = new Date().toISOString(); debouncedSave(); render();" ${!state.isNoteUnlocked ? 'disabled' : ''}>
+                                <div class="toolbar-actions">
+                                    <button class="icon-btn" onclick="navigator.clipboard.writeText(state.selectedNote.content); showToast('Copied!');" title="Copy">
+                                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                    </button>
+                                    <button class="icon-btn" onclick="const blob = new Blob([state.selectedNote.content], {type: 'text/plain'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = state.selectedNote.title + '.txt'; a.click(); showToast('Exported!');" title="Export">
+                                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                    </button>
+                                    ${!state.isGuest ? `
+                                        <button class="icon-btn" onclick="${state.selectedNote.isLocked ? 'state.selectedNote.isLocked = false; saveNote(); render();' : 'state.showLockModal = true; render();'}" title="${state.selectedNote.isLocked ? 'Unlock' : 'Lock'}">
+                                            <svg width="18" height="18" fill="none" stroke="${state.selectedNote.isLocked ? 'var(--warning)' : 'currentColor'}" viewBox="0 0 24 24">
+                                                ${state.selectedNote.isLocked 
+                                                    ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>'
+                                                    : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/>'
+                                                }
+                                            </svg>
+                                        </button>
+                                    ` : ''}
+                                    <button class="icon-btn" onclick="state.improvedContent = ''; state.improveCustomPrompt = ''; state.showImproveModal = true; improveNote();" title="Improve with AI" ${!state.selectedNote.content ? 'disabled style="opacity:0.4"' : ''}>
+                                        <svg width="18" height="18" fill="none" stroke="var(--primary)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                                    </button>
+                                    <button class="icon-btn danger" onclick="state.showDeleteConfirm = true; render();" title="Delete">
+                                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="note-content">
+                                ${state.isNoteUnlocked ? `
+                                    <textarea class="note-textarea" placeholder="Start typing your note..." oninput="state.selectedNote.content = this.value; state.selectedNote.updatedAt = new Date().toISOString(); debouncedSave();">${state.selectedNote.content}</textarea>
+                                ` : `
+                                    <div class="locked-state">
+                                        <svg width="64" height="64" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                        <p style="margin-top: 16px; color: var(--text-secondary);">This note is locked</p>
+                                        <button class="btn btn-primary" style="width: auto; margin-top: 16px;" onclick="state.showUnlockModal = true; render();">Unlock</button>
+                                    </div>
+                                `}
+                            </div>
+                        ` : `
+                            <div class="empty-state">
+                                <svg width="80" height="80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                <h3>No Note Selected</h3>
+                                <p>Select a note or create a new one</p>
+                                <button class="btn btn-primary" style="width: auto;" onclick="createNote()">Create New Note</button>
+                            </div>
+                        `}
+                    </div>
+                </div>
+                
+                <!-- Status Indicator -->
+                <div class="status-indicator ${state.isOnline ? 'online' : 'offline'}">
+                    <span class="status-dot"></span>
+                    ${state.isOnline ? 'Online' : 'Offline'}
+                </div>
+                
+                <!-- AI Button -->
+                <button class="ai-btn" onclick="state.showAI = !state.showAI; state.chatMessages = []; render();">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                </button>
+                
+                <!-- AI Panel -->
+                <div class="ai-panel ${state.showAI ? '' : 'hidden'}">
+                    <div class="ai-header">
+                        <div class="ai-header-content">
+                            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                            <div>
+                                <h3>NoteAI</h3>
+                                <span>Made by Rdev</span>
+                            </div>
+                        </div>
+                        <button class="icon-btn" style="color: white;" onclick="state.showAI = false; render();">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                    <div class="ai-messages">
+                        ${state.chatMessages.length === 0 ? `
+                            <div class="ai-message assistant">Hi! I'm NoteAI, made by Rdev. How can I help you with your notes today?</div>
+                        ` : state.chatMessages.map(msg => `
+                            <div class="ai-message ${msg.role}">${msg.content}</div>
+                        `).join('')}
+                        ${state.streamingText ? `<div class="ai-message assistant">${state.streamingText}<span style="animation: pulse 1s infinite;">|</span></div>` : ''}
+                        ${state.isChatLoading && !state.streamingText ? `
+                            <div class="ai-message assistant" style="display: flex; gap: 4px;">
+                                <span style="width: 8px; height: 8px; background: var(--text-secondary); border-radius: 50%; animation: bounce 1s infinite;"></span>
+                                <span style="width: 8px; height: 8px; background: var(--text-secondary); border-radius: 50%; animation: bounce 1s infinite 0.2s;"></span>
+                                <span style="width: 8px; height: 8px; background: var(--text-secondary); border-radius: 50%; animation: bounce 1s infinite 0.4s;"></span>
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="ai-input-area">
+                        <input type="text" placeholder="Ask NoteAI..." value="${state.chatInput}" oninput="state.chatInput = this.value;" onkeypress="if(event.key==='Enter') sendChatMessage();">
+                        <button onclick="sendChatMessage()">Send</button>
+                    </div>
+                </div>
+                
+                <!-- Lock Modal -->
+                ${state.showLockModal ? `
+                    <div class="modal-overlay" onclick="state.showLockModal = false; render();">
+                        <div class="modal" onclick="event.stopPropagation();">
+                            <h3>Lock Note</h3>
+                            <p>Enter a password to protect this note</p>
+                            <div class="form-group">
+                                <label>Password</label>
+                                <input type="password" value="${state.lockPassword}" oninput="state.lockPassword = this.value;">
+                            </div>
+                            <div class="modal-actions">
+                                <button class="btn btn-secondary" onclick="state.showLockModal = false; state.lockPassword = ''; render();">Cancel</button>
+                                <button class="btn btn-primary" onclick="lockNote();">Lock</button>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <!-- Unlock Modal -->
+                ${state.showUnlockModal ? `
+                    <div class="modal-overlay" onclick="state.showUnlockModal = false; render();">
+                        <div class="modal" onclick="event.stopPropagation();">
+                            <h3>Unlock Note</h3>
+                            <p>Enter the password to access this note</p>
+                            <div class="form-group">
+                                <label>Password</label>
+                                <input type="password" value="${state.unlockPassword}" oninput="state.unlockPassword = this.value;">
+                            </div>
+                            <div class="modal-actions">
+                                <button class="btn btn-secondary" onclick="state.showUnlockModal = false; state.unlockPassword = ''; render();">Cancel</button>
+                                <button class="btn btn-primary" onclick="unlockNote();">Unlock</button>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <!-- Delete Confirm Modal -->
+                ${state.showDeleteConfirm ? `
+                    <div class="modal-overlay" onclick="state.showDeleteConfirm = false; render();">
+                        <div class="modal" onclick="event.stopPropagation();">
+                            <h3>Delete Note?</h3>
+                            <p>This action cannot be undone.</p>
+                            <div class="modal-actions">
+                                <button class="btn btn-secondary" onclick="state.showDeleteConfirm = false; render();">Cancel</button>
+                                <button class="btn btn-primary" style="background: var(--danger);" onclick="deleteNote();">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <!-- Settings Modal -->
+                ${state.showSettings ? `
+                    <div class="settings-panel" onclick="state.showSettings = false; render();">
+                        <div class="settings-content" onclick="event.stopPropagation();">
+                            <div class="settings-header">
+                                <h3>Settings</h3>
+                                <button class="icon-btn" onclick="state.showSettings = false; render();">
+                                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                            </div>
+                            <div class="settings-body">
+                                <div class="avatar-upload">
+                                    <label>
+                                        <div class="avatar">
+                                            ${state.settingsForm.profilePicture ? `<img src="${state.settingsForm.profilePicture}">` : '<svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>'}
+                                        </div>
+                                        <input type="file" accept="image/*" style="display:none" onchange="const reader = new FileReader(); reader.onload = e => { const img = new Image(); img.onload = () => { const canvas = document.createElement('canvas'); canvas.width = canvas.height = 200; const ctx = canvas.getContext('2d'); const scale = Math.min(200/img.width, 200/img.height); ctx.drawImage(img, (200-img.width*scale)/2, (200-img.height*scale)/2, img.width*scale, img.height*scale); state.settingsForm.profilePicture = canvas.toDataURL(); render(); }; img.src = e.target.result; }; reader.readAsDataURL(this.files[0]);">
+                                        <div class="edit-icon">
+                                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                        </div>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label>Name</label>
+                                    <input type="text" value="${state.settingsForm.name}" oninput="state.settingsForm.name = this.value;">
+                                </div>
+                                <div class="form-group">
+                                    <label>Username</label>
+                                    <input type="text" value="${state.settingsForm.username}" oninput="state.settingsForm.username = this.value;">
+                                </div>
+                                <div class="form-group">
+                                    <label>New Password (leave blank to keep current)</label>
+                                    <input type="password" value="${state.settingsForm.newPassword}" oninput="state.settingsForm.newPassword = this.value;">
+                                </div>
+                                <button class="btn btn-primary" onclick="updateSettings();">Save Changes</button>
+                                <div class="danger-zone">
+                                    <h4>Danger Zone</h4>
+                                    <button class="btn btn-secondary" style="border-color: var(--danger); color: var(--danger);" onclick="if(confirm('Delete your account? This cannot be undone.')) { localStorage.removeItem('notex_user'); state.user = null; state.view = 'welcome'; render(); }">Delete Account</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <!-- Improve Modal -->
+                ${state.showImproveModal ? `
+                    <div class="modal-overlay" onclick="${!state.isImproving ? 'state.showImproveModal = false; render();' : ''}">
+                        <div class="modal improve-modal" onclick="event.stopPropagation();">
+                            <h3>Improve with AI</h3>
+                            <p style="font-size: 11px; opacity: 0.7;">NoteAI by Rdev</p>
+                            <div class="custom-prompt">
+                                <label>CUSTOM INSTRUCTIONS (OPTIONAL)</label>
+                                <input type="text" placeholder="e.g., Make it shorter, more formal..." value="${state.improveCustomPrompt}" oninput="state.improveCustomPrompt = this.value;" ${state.isImproving ? 'disabled' : ''}>
+                            </div>
+                            <div class="improve-result">
+                                ${state.isImproving && !state.improvedContent ? '<p style="text-align: center; color: var(--text-secondary);">Improving your note...</p>' : `<p>${state.improvedContent}${state.isImproving ? '<span style="animation: pulse 1s infinite;">|</span>' : ''}</p>`}
+                            </div>
+                            <div class="modal-actions" style="margin-top: 16px;">
+                                <button class="btn btn-secondary" onclick="state.showImproveModal = false; state.improveCustomPrompt = ''; render();" ${state.isImproving ? 'disabled' : ''}>Cancel</button>
+                                <button class="btn btn-secondary" onclick="improveNote();" ${state.isImproving ? 'disabled' : ''}>${state.improvedContent ? 'Regenerate' : 'Generate'}</button>
+                                <button class="btn btn-primary" onclick="applyImprovedContent();" ${state.isImproving || !state.improvedContent ? 'disabled' : ''}>Apply</button>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+            `;
+        }
+
+        // ==================== INIT ====================
+        function init() {
+            loadUser();
+            
+            // Online/offline detection
+            window.addEventListener('online', () => { state.isOnline = true; render(); });
+            window.addEventListener('offline', () => { state.isOnline = false; render(); });
+            
+            // Load data
+            if (state.user) {
+                fetchNotes();
+                fetchNotifications();
+            }
+            
+            render();
+            
+            // Auto-refresh
+            setInterval(() => {
+                if (state.user && !state.isGuest && state.isOnline) {
+                    fetchNotes();
+                    fetchNotifications();
+                }
+            }, 30000);
+        }
+
+        init();
+    </script>
+    
+    <style>
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</body>
+</html>
