@@ -59,21 +59,6 @@ interface AdminUser {
   };
 }
 
-// Coding Mode Types
-interface CodingSettings {
-  enabled: boolean;
-  language: 'html' | 'css' | 'javascript' | 'typescript' | 'python' | 'json' | 'markdown' | 'plaintext';
-  theme: 'light' | 'dark' | 'monokai' | 'github';
-  fontSize: number;
-  tabSize: 2 | 4;
-  lineNumbers: boolean;
-  wordWrap: boolean;
-  showPreview: boolean;
-  previewSide: 'right' | 'bottom';
-  autoClose: boolean;
-  highlightErrors: boolean;
-}
-
 // App States
 type AppState = 'loading' | 'welcome' | 'login' | 'signup' | 'dashboard';
 
@@ -107,24 +92,7 @@ export default function NoteXApp() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [showCodingSettings, setShowCodingSettings] = useState(false);
   const [showNoteSettings, setShowNoteSettings] = useState(false);
-  const [codingSettings, setCodingSettings] = useState<CodingSettings>({
-    enabled: false,
-    language: 'html',
-    theme: 'light',
-    fontSize: 14,
-    tabSize: 2,
-    lineNumbers: true,
-    wordWrap: true,
-    showPreview: false,
-    previewSide: 'right',
-    autoClose: true,
-    highlightErrors: true,
-  });
-  const [previewContent, setPreviewContent] = useState('');
-  const [codeErrors, setCodeErrors] = useState<{line: number; message: string}[]>([]);
-  const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
 
   // Form states
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
@@ -691,264 +659,6 @@ export default function NoteXApp() {
     await navigator.clipboard.writeText(dataStr);
     toast({ title: 'Copied!', description: 'All user data copied to clipboard', variant: 'success' });
   };
-
-  // ============ CODING MODE FUNCTIONS ============
-  
-  // Detect language from content
-  const detectLanguage = (content: string): CodingSettings['language'] => {
-    if (content.includes('<!DOCTYPE') || content.includes('<html') || content.includes('<div')) return 'html';
-    if (content.includes('{') && content.includes(':') && content.includes(';') && !content.includes('function')) return 'css';
-    if (content.includes('def ') || content.includes('import ') && content.includes('print(')) return 'python';
-    if (content.includes('interface ') || content.includes(': string') || content.includes(': number')) return 'typescript';
-    if (content.includes('function ') || content.includes('const ') || content.includes('=>')) return 'javascript';
-    if (content.startsWith('{') || content.startsWith('[')) return 'json';
-    if (content.includes('# ') || content.includes('## ') || content.includes('**')) return 'markdown';
-    return 'plaintext';
-  };
-
-  // Check for code errors
-  const checkCodeErrors = (content: string, language: CodingSettings['language']): {line: number; message: string}[] => {
-    const errors: {line: number; message: string}[] = [];
-    const lines = content.split('\n');
-    
-    if (language === 'html') {
-      const openTags = content.match(/<[a-z][^/>]*>/gi) || [];
-      const closeTags = content.match(/<\/[a-z]+>/gi) || [];
-      const selfClosing = content.match(/<[a-z][^>]*\/>/gi) || [];
-      
-      if (openTags.length - selfClosing.length > closeTags.length) {
-        errors.push({ line: 1, message: 'Unclosed HTML tag detected' });
-      }
-    }
-    
-    if (language === 'javascript' || language === 'typescript') {
-      let braceCount = 0;
-      let parenCount = 0;
-      let bracketCount = 0;
-      
-      lines.forEach((line, index) => {
-        braceCount += (line.match(/{/g) || []).length - (line.match(/}/g) || []).length;
-        parenCount += (line.match(/\(/g) || []).length - (line.match(/\)/g) || []).length;
-        bracketCount += (line.match(/\[/g) || []).length - (line.match(/\]/g) || []).length;
-        
-        if (line.includes(';;')) {
-          errors.push({ line: index + 1, message: 'Double semicolon' });
-        }
-      });
-      
-      if (braceCount !== 0) errors.push({ line: lines.length, message: 'Unmatched braces' });
-      if (parenCount !== 0) errors.push({ line: lines.length, message: 'Unmatched parentheses' });
-      if (bracketCount !== 0) errors.push({ line: lines.length, message: 'Unmatched brackets' });
-    }
-    
-    if (language === 'css') {
-      let braceCount = 0;
-      lines.forEach((line, index) => {
-        braceCount += (line.match(/{/g) || []).length - (line.match(/}/g) || []).length;
-        if (line.includes('{') && !line.includes('}') && !lines[index + 1]?.includes('{')) {
-          if (!line.trim().endsWith('{')) {
-            // Check if next line starts with property
-          }
-        }
-      });
-      if (braceCount !== 0) errors.push({ line: lines.length, message: 'Unmatched braces in CSS' });
-    }
-    
-    if (language === 'json') {
-      try {
-        JSON.parse(content);
-      } catch (e) {
-        const match = e.message.match(/position (\d+)/);
-        if (match) {
-          const pos = parseInt(match[1]);
-          let charCount = 0;
-          for (let i = 0; i < lines.length; i++) {
-            charCount += lines[i].length + 1;
-            if (charCount >= pos) {
-              errors.push({ line: i + 1, message: `JSON error: ${e.message}` });
-              break;
-            }
-          }
-        }
-      }
-    }
-    
-    return errors;
-  };
-
-  // Update preview content
-  const updatePreview = useCallback((content: string, language: CodingSettings['language']) => {
-    if (language === 'html') {
-      setPreviewContent(content);
-    } else if (language === 'css') {
-      setPreviewContent(`<style>${content}</style><div class="preview">Preview</div>`);
-    } else if (language === 'javascript') {
-      try {
-        const result = content.replace(/console\.log/g, '// console.log');
-        setPreviewContent(`<script>${result}</script><div>Check console for output</div>`);
-      } catch {
-        setPreviewContent('<div>JavaScript preview</div>');
-      }
-    } else {
-      setPreviewContent(`<pre style="white-space: pre-wrap; padding: 20px;">${content}</pre>`);
-    }
-  }, []);
-
-  // Handle coding content change
-  const handleCodingContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    if (!selectedNote) return;
-    const newContent = e.target.value;
-    
-    // Auto-detect language
-    const detectedLang = detectLanguage(newContent);
-    if (detectedLang !== codingSettings.language && detectedLang !== 'plaintext') {
-      setCodingSettings(prev => ({ ...prev, language: detectedLang }));
-    }
-    
-    // Check errors
-    if (codingSettings.highlightErrors) {
-      setCodeErrors(checkCodeErrors(newContent, codingSettings.language));
-    }
-    
-    // Update preview
-    if (codingSettings.showPreview) {
-      updatePreview(newContent, codingSettings.language);
-    }
-    
-    handleContentChange(e);
-  };
-
-  // Handle tab key for proper indentation
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Tab' && codingSettings.enabled) {
-      e.preventDefault();
-      const textarea = e.currentTarget;
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const indent = ' '.repeat(codingSettings.tabSize);
-      
-      const newContent = selectedNote?.content.substring(0, start) + indent + selectedNote?.content.substring(end);
-      if (selectedNote && newContent) {
-        const updatedNote = { ...selectedNote, content: newContent };
-        setSelectedNote(updatedNote);
-        setNotes(notes.map(n => n.id === selectedNote.id ? updatedNote : n));
-        debouncedSave(selectedNote.id, selectedNote.title, newContent);
-        
-        // Reset cursor position
-        setTimeout(() => {
-          textarea.selectionStart = textarea.selectionEnd = start + codingSettings.tabSize;
-        }, 0);
-      }
-    }
-    
-    // Auto-close brackets
-    if (codingSettings.autoClose && codingSettings.enabled) {
-      const pairs: Record<string, string> = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'", '`': '`' };
-      if (pairs[e.key]) {
-        e.preventDefault();
-        const textarea = e.currentTarget;
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const content = selectedNote?.content || '';
-        
-        const newContent = content.substring(0, start) + e.key + pairs[e.key] + content.substring(end);
-        if (selectedNote) {
-          const updatedNote = { ...selectedNote, content: newContent };
-          setSelectedNote(updatedNote);
-          setNotes(notes.map(n => n.id === selectedNote.id ? updatedNote : n));
-          
-          setTimeout(() => {
-            textarea.selectionStart = textarea.selectionEnd = start + 1;
-          }, 0);
-        }
-      }
-    }
-  };
-
-  // Toggle coding mode
-  const toggleCodingMode = () => {
-    setCodingSettings(prev => ({ ...prev, enabled: !prev.enabled }));
-    if (!codingSettings.enabled && selectedNote?.content) {
-      const detectedLang = detectLanguage(selectedNote.content);
-      setCodingSettings(prev => ({ ...prev, language: detectedLang }));
-      if (codingSettings.showPreview) {
-        updatePreview(selectedNote.content, detectedLang);
-      }
-      if (codingSettings.highlightErrors) {
-        setCodeErrors(checkCodeErrors(selectedNote.content, detectedLang));
-      }
-    }
-  };
-
-  // Get syntax highlighted line
-  const getSyntaxColor = (line: string, language: CodingSettings['language']): string => {
-    // Simple syntax highlighting colors based on theme
-    return 'inherit'; // We'll use CSS for highlighting
-  };
-
-  // Simple Markdown to HTML converter
-  const markdownToHtml = (markdown: string): string => {
-    let html = markdown
-      // Escape HTML
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      // Code blocks (must be before inline code)
-      .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>')
-      // Inline code
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      // Headers
-      .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-      .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-      .replace(/^# (.*$)/gm, '<h1>$1</h1>')
-      // Bold and italic
-      .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/___(.+?)___/g, '<strong><em>$1</em></strong>')
-      .replace(/__(.+?)__/g, '<strong>$1</strong>')
-      .replace(/_(.+?)_/g, '<em>$1</em>')
-      // Strikethrough
-      .replace(/~~(.+?)~~/g, '<del>$1</del>')
-      // Blockquotes
-      .replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>')
-      // Horizontal rule
-      .replace(/^---$/gm, '<hr>')
-      .replace(/^\*\*\*$/gm, '<hr>')
-      // Unordered lists
-      .replace(/^\* (.+)$/gm, '<li>$1</li>')
-      .replace(/^- (.+)$/gm, '<li>$1</li>')
-      // Ordered lists
-      .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-      // Links
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
-      // Images
-      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;">')
-      // Line breaks and paragraphs
-      .replace(/\n\n/g, '</p><p>')
-      .replace(/\n/g, '<br>');
-    
-    // Wrap in paragraph if not already wrapped
-    if (!html.startsWith('<')) {
-      html = '<p>' + html + '</p>';
-    }
-    
-    // Clean up empty paragraphs
-    html = html.replace(/<p><\/p>/g, '');
-    html = html.replace(/<p>(<h[1-6]>)/g, '$1');
-    html = html.replace(/(<\/h[1-6]>)<\/p>/g, '$1');
-    html = html.replace(/<p>(<pre>)/g, '$1');
-    html = html.replace(/(<\/pre>)<\/p>/g, '$1');
-    html = html.replace(/<p>(<blockquote>)/g, '$1');
-    html = html.replace(/(<\/blockquote>)<\/p>/g, '$1');
-    html = html.replace(/<p>(<hr>)<\/p>/g, '$1');
-    html = html.replace(/<p>(<li>)/g, '<ul>$1');
-    html = html.replace(/(<\/li>)<\/p>/g, '$1</ul>');
-    
-    return html;
-  };
-
-
 
   // Handle profile picture upload (no cropping - just resize)
   const handleProfilePictureUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'signup' | 'settings') => {
@@ -1820,7 +1530,7 @@ export default function NoteXApp() {
                 <div className="relative">
                   <button
                     onClick={() => setShowNoteSettings(!showNoteSettings)}
-                    className={`p-2 rounded-lg transition-colors cursor-pointer ${codingSettings.enabled ? 'bg-violet-100 text-violet-600' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                     title="Note Settings"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1867,37 +1577,6 @@ export default function NoteXApp() {
                           )}
                         </button>
                         
-                        {/* Coding Mode Option */}
-                        <button
-                          onClick={() => {
-                            toggleCodingMode();
-                            setShowNoteSettings(false);
-                          }}
-                          className={`w-full px-4 py-2.5 text-left hover:bg-slate-50 flex items-center gap-3 ${codingSettings.enabled ? 'bg-violet-50' : ''}`}
-                        >
-                          <svg className={`w-5 h-5 ${codingSettings.enabled ? 'text-violet-600' : 'text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                          </svg>
-                          <span className={codingSettings.enabled ? 'text-violet-600 font-medium' : 'text-slate-700'}>
-                            {codingSettings.enabled ? 'Coding Mode On' : 'Coding Mode'}
-                          </span>
-                        </button>
-                        
-                        {codingSettings.enabled && (
-                          <button
-                            onClick={() => {
-                              setShowCodingSettings(true);
-                              setShowNoteSettings(false);
-                            }}
-                            className="w-full px-4 py-2.5 text-left hover:bg-slate-50 flex items-center gap-3 pl-12"
-                          >
-                            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                            </svg>
-                            <span className="text-slate-600 text-sm">Editor Settings</span>
-                          </button>
-                        )}
-                        
                         <div className="border-t border-slate-100 my-2" />
                         
                         {/* Delete Option */}
@@ -1921,105 +1600,16 @@ export default function NoteXApp() {
             </div>
 
             {/* Note Content */}
-            <div className={`flex-1 min-h-0 overflow-hidden ${codingSettings.enabled && codingSettings.showPreview ? 'flex' : 'p-4'} ${codingSettings.previewSide === 'bottom' ? 'flex-col' : 'flex-row'}`}>
+            <div className="flex-1 p-4">
               {isNoteUnlocked ? (
-                codingSettings.enabled ? (
-                  <>
-                    {/* Code Editor */}
-                    <div className={`${codingSettings.previewSide === 'bottom' ? 'h-1/2' : 'flex-1'} flex flex-col min-h-0 overflow-hidden ${codingSettings.theme === 'dark' || codingSettings.theme === 'monokai' ? 'bg-slate-900' : 'bg-white'}`}>
-                      {/* Editor Toolbar */}
-                      <div className={`px-4 py-2 border-b flex items-center gap-4 text-xs shrink-0 ${codingSettings.theme === 'dark' || codingSettings.theme === 'monokai' ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
-                        <span className="font-mono uppercase">{codingSettings.language}</span>
-                        <span>•</span>
-                        <span>{selectedNote.content.split('\n').length} lines</span>
-                        {codeErrors.length > 0 && (
-                          <span className="text-red-500 flex items-center gap-1">
-                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                            {codeErrors.length} error{codeErrors.length > 1 ? 's' : ''}
-                          </span>
-                        )}
-                        <div className="flex-1" />
-                        <button onClick={() => setCodingSettings(prev => ({ ...prev, showPreview: !prev.showPreview }))} className={`px-3 py-1.5 rounded-lg font-medium cursor-pointer ${codingSettings.showPreview ? (codingSettings.theme === 'dark' || codingSettings.theme === 'monokai' ? 'bg-violet-600 text-white' : 'bg-violet-100 text-violet-700') : 'hover:bg-slate-200'}`}>
-                          <span className="flex items-center gap-1.5">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                            Preview
-                          </span>
-                        </button>
-                      </div>
-                      
-                      {/* Code Area with Line Numbers */}
-                      <div className="flex-1 min-h-0 flex overflow-hidden">
-                        {codingSettings.lineNumbers && (
-                          <div className={`flex-shrink-0 py-4 pr-2 text-right select-none font-mono text-xs leading-[1.7] overflow-y-auto h-full ${codingSettings.theme === 'dark' || codingSettings.theme === 'monokai' ? 'bg-slate-800/50 text-slate-500' : 'bg-slate-50 text-slate-400'}`} style={{ fontSize: codingSettings.fontSize }}>
-                            {selectedNote.content.split('\n').map((_, i) => (
-                              <div key={i} className={`px-3 ${codeErrors.some(e => e.line === i + 1) ? 'text-red-500 bg-red-500/10' : ''}`}>{i + 1}</div>
-                            ))}
-                          </div>
-                        )}
-                        <textarea
-                          ref={noteContentRef}
-                          dir="ltr"
-                          value={selectedNote.content}
-                          onChange={handleCodingContentChange}
-                          onKeyDown={handleKeyDown}
-                          className={`flex-1 min-w-0 h-full resize-none focus:outline-none font-mono leading-[1.7] p-4 overflow-y-auto ${codingSettings.theme === 'dark' ? 'bg-slate-900 text-slate-100' : codingSettings.theme === 'monokai' ? 'bg-slate-900 text-green-400' : codingSettings.theme === 'github' ? 'bg-white text-slate-800' : 'bg-white text-slate-700'}`}
-                          style={{ fontSize: codingSettings.fontSize, whiteSpace: codingSettings.wordWrap ? 'pre-wrap' : 'pre', overflowWrap: codingSettings.wordWrap ? 'break-word' : 'normal' }}
-                          placeholder={`Start typing your ${codingSettings.language} code...`}
-                          spellCheck={codingSettings.language === 'plaintext' || codingSettings.language === 'markdown'}
-                        />
-                      </div>
-                    </div>
-                    
-                    {/* Preview Panel */}
-                    {codingSettings.showPreview && (
-                      <div className={`${codingSettings.previewSide === 'bottom' ? 'h-1/2 border-t' : 'flex-1 border-l'} border-slate-200 flex flex-col min-h-0`}>
-                        <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs text-slate-500 font-medium flex items-center gap-2">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                          Preview
-                          <div className="flex-1" />
-                          <button
-                            onClick={() => setIsPreviewFullscreen(true)}
-                            className="p-1 hover:bg-slate-200 rounded transition-colors cursor-pointer"
-                            title="Fullscreen"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
-                          </button>
-                        </div>
-                        <div className="flex-1 min-h-0 overflow-auto">
-                          {codingSettings.language === 'html' || codingSettings.language === 'css' || codingSettings.language === 'javascript' ? (
-                            <iframe
-                              srcDoc={codingSettings.language === 'html' ? `<base target="_blank"/>${selectedNote.content}` : codingSettings.language === 'css' ? `<style>${selectedNote.content}</style><base target="_blank"/><div class="preview" style="padding: 20px;">Preview</div>` : `<script>${selectedNote.content}</script><div style="padding: 20px; font-family: system-ui;">Check console for output</div>`}
-                              className="w-full h-full border-0"
-                              title="Preview"
-                              sandbox="allow-scripts allow-popups allow-forms"
-                            />
-                          ) : codingSettings.language === 'markdown' ? (
-                            <div 
-                              className={`p-6 prose prose-sm max-w-none ${codingSettings.theme === 'dark' || codingSettings.theme === 'monokai' ? 'bg-slate-800 text-slate-200 prose-invert' : 'bg-white text-slate-700'}`}
-                              style={{
-                                lineHeight: '1.7',
-                              }}
-                              dangerouslySetInnerHTML={{ __html: markdownToHtml(selectedNote.content) || '<p class="text-slate-400">Start typing markdown to see preview...</p>' }}
-                            />
-                          ) : (
-                            <pre className={`p-4 text-sm font-mono ${codingSettings.theme === 'dark' || codingSettings.theme === 'monokai' ? 'bg-slate-800 text-slate-300' : 'bg-slate-50 text-slate-600'}`}>
-                              {selectedNote.content || 'Start typing to see preview...'}
-                            </pre>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <textarea
-                    ref={noteContentRef}
-                    dir="ltr"
-                    value={selectedNote.content}
-                    onChange={handleContentChange}
-                    className="w-full h-full resize-none focus:outline-none text-slate-700 leading-relaxed"
-                    placeholder="Start typing your note..."
-                  />
-                )
+                <textarea
+                  ref={noteContentRef}
+                  dir="ltr"
+                  value={selectedNote.content}
+                  onChange={handleContentChange}
+                  className="w-full h-full resize-none focus:outline-none text-slate-700 leading-relaxed"
+                  placeholder="Start typing your note..."
+                />
               ) : (
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center">
@@ -2669,16 +2259,6 @@ export default function NoteXApp() {
                 </button>
               )}
               
-              <button
-                onClick={() => { setShowCodingSettings(true); setShowMobileMenu(false); }}
-                className="w-full mb-3 py-3 rounded-xl font-medium flex items-center justify-center gap-2 bg-gradient-to-r from-slate-800 to-slate-900 text-white hover:from-slate-700 hover:to-slate-800 transition-colors cursor-pointer"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                </svg>
-                Coding Mode
-              </button>
-              
               <div className="pt-2 pb-4 max-h-[50vh] overflow-y-auto">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-medium text-slate-500">Your Notes</span>
@@ -2710,150 +2290,6 @@ export default function NoteXApp() {
                 Logout
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-
-      {/* Coding Mode Settings Modal */}
-      {showCodingSettings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/50 animate-fade-in" onClick={() => setShowCodingSettings(false)} />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md mx-4 animate-scale-in overflow-hidden max-h-[85vh] flex flex-col">
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-900">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-white">Coding Mode</h3>
-                  <p className="text-xs text-white/70">Editor Settings</p>
-                </div>
-              </div>
-              <button onClick={() => setShowCodingSettings(false)} className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-auto p-4 space-y-4">
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-slate-800">Enable Coding Mode</p>
-                  <p className="text-xs text-slate-500">Full code editor experience</p>
-                </div>
-                <button onClick={() => setCodingSettings(prev => ({ ...prev, enabled: !prev.enabled }))} className={`w-12 h-6 rounded-full transition-colors ${codingSettings.enabled ? 'bg-violet-600' : 'bg-slate-300'}`}>
-                  <div className={`w-5 h-5 bg-white rounded-full transition-transform ${codingSettings.enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
-                </button>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Language</label>
-                <select value={codingSettings.language} onChange={(e) => setCodingSettings(prev => ({ ...prev, language: e.target.value as CodingSettings['language'] }))} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
-                  <option value="html">HTML</option>
-                  <option value="css">CSS</option>
-                  <option value="javascript">JavaScript</option>
-                  <option value="typescript">TypeScript</option>
-                  <option value="python">Python</option>
-                  <option value="json">JSON</option>
-                  <option value="markdown">Markdown</option>
-                  <option value="plaintext">Plain Text</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Theme</label>
-                <select value={codingSettings.theme} onChange={(e) => setCodingSettings(prev => ({ ...prev, theme: e.target.value as CodingSettings['theme'] }))} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                  <option value="monokai">Monokai</option>
-                  <option value="github">GitHub</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Font Size: {codingSettings.fontSize}px</label>
-                <input type="range" min="12" max="24" value={codingSettings.fontSize} onChange={(e) => setCodingSettings(prev => ({ ...prev, fontSize: parseInt(e.target.value) }))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-violet-600" />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Tab Size</label>
-                <div className="flex gap-2">
-                  <button onClick={() => setCodingSettings(prev => ({ ...prev, tabSize: 2 }))} className={`flex-1 py-2 rounded-lg font-medium transition-colors ${codingSettings.tabSize === 2 ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>2 Spaces</button>
-                  <button onClick={() => setCodingSettings(prev => ({ ...prev, tabSize: 4 }))} className={`flex-1 py-2 rounded-lg font-medium transition-colors ${codingSettings.tabSize === 4 ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>4 Spaces</button>
-                </div>
-              </div>
-              
-              <div className="space-y-3">
-                <div className="flex items-center justify-between"><span className="text-sm text-slate-700">Line Numbers</span><button onClick={() => setCodingSettings(prev => ({ ...prev, lineNumbers: !prev.lineNumbers }))} className={`w-10 h-5 rounded-full transition-colors ${codingSettings.lineNumbers ? 'bg-violet-600' : 'bg-slate-300'}`}><div className={`w-4 h-4 bg-white rounded-full transition-transform ${codingSettings.lineNumbers ? 'translate-x-5' : 'translate-x-0.5'}`} /></button></div>
-                <div className="flex items-center justify-between"><span className="text-sm text-slate-700">Word Wrap</span><button onClick={() => setCodingSettings(prev => ({ ...prev, wordWrap: !prev.wordWrap }))} className={`w-10 h-5 rounded-full transition-colors ${codingSettings.wordWrap ? 'bg-violet-600' : 'bg-slate-300'}`}><div className={`w-4 h-4 bg-white rounded-full transition-transform ${codingSettings.wordWrap ? 'translate-x-5' : 'translate-x-0.5'}`} /></button></div>
-                <div className="flex items-center justify-between"><span className="text-sm text-slate-700">Show Preview</span><button onClick={() => setCodingSettings(prev => ({ ...prev, showPreview: !prev.showPreview }))} className={`w-10 h-5 rounded-full transition-colors ${codingSettings.showPreview ? 'bg-violet-600' : 'bg-slate-300'}`}><div className={`w-4 h-4 bg-white rounded-full transition-transform ${codingSettings.showPreview ? 'translate-x-5' : 'translate-x-0.5'}`} /></button></div>
-                <div className="flex items-center justify-between"><span className="text-sm text-slate-700">Auto-Close Brackets</span><button onClick={() => setCodingSettings(prev => ({ ...prev, autoClose: !prev.autoClose }))} className={`w-10 h-5 rounded-full transition-colors ${codingSettings.autoClose ? 'bg-violet-600' : 'bg-slate-300'}`}><div className={`w-4 h-4 bg-white rounded-full transition-transform ${codingSettings.autoClose ? 'translate-x-5' : 'translate-x-0.5'}`} /></button></div>
-                <div className="flex items-center justify-between"><span className="text-sm text-slate-700">Highlight Errors</span><button onClick={() => setCodingSettings(prev => ({ ...prev, highlightErrors: !prev.highlightErrors }))} className={`w-10 h-5 rounded-full transition-colors ${codingSettings.highlightErrors ? 'bg-violet-600' : 'bg-slate-300'}`}><div className={`w-4 h-4 bg-white rounded-full transition-transform ${codingSettings.highlightErrors ? 'translate-x-5' : 'translate-x-0.5'}`} /></button></div>
-              </div>
-              
-              {codingSettings.showPreview && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Preview Position</label>
-                  <div className="flex gap-2">
-                    <button onClick={() => setCodingSettings(prev => ({ ...prev, previewSide: 'right' }))} className={`flex-1 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${codingSettings.previewSide === 'right' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>Right
-                    </button>
-                    <button onClick={() => setCodingSettings(prev => ({ ...prev, previewSide: 'bottom' }))} className={`flex-1 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${codingSettings.previewSide === 'bottom' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>Bottom
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            <div className="p-4 border-t border-slate-200">
-              <button onClick={() => setShowCodingSettings(false)} className="w-full py-2.5 bg-violet-600 text-white rounded-lg font-medium hover:bg-violet-700 transition-colors cursor-pointer">Done</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Fullscreen Preview Modal */}
-      {isPreviewFullscreen && selectedNote && (
-        <div className="fixed inset-0 z-[100] bg-slate-900 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 bg-slate-800 border-b border-slate-700">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-              </div>
-              <div>
-                <h3 className="font-semibold text-white">Fullscreen Preview</h3>
-                <p className="text-xs text-slate-400">{selectedNote.title}</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setIsPreviewFullscreen(false)}
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-          </div>
-          <div className="flex-1 overflow-auto bg-white">
-            {codingSettings.language === 'html' || codingSettings.language === 'css' || codingSettings.language === 'javascript' ? (
-              <iframe
-                srcDoc={codingSettings.language === 'html' ? `<base target="_blank"/>${selectedNote.content}` : codingSettings.language === 'css' ? `<style>${selectedNote.content}</style><base target="_blank"/><div class="preview" style="padding: 20px;">Preview</div>` : `<script>${selectedNote.content}</script><div style="padding: 20px; font-family: system-ui;">Check console for output</div>`}
-                className="w-full h-full border-0"
-                title="Fullscreen Preview"
-                sandbox="allow-scripts allow-popups allow-forms"
-              />
-            ) : codingSettings.language === 'markdown' ? (
-              <div 
-                className={`p-8 prose prose-lg max-w-4xl mx-auto ${codingSettings.theme === 'dark' || codingSettings.theme === 'monokai' ? 'bg-slate-900 text-slate-200 prose-invert' : 'bg-white text-slate-700'}`}
-                style={{ lineHeight: '1.8' }}
-                dangerouslySetInnerHTML={{ __html: markdownToHtml(selectedNote.content) || '<p class="text-slate-400">Start typing markdown to see preview...</p>' }}
-              />
-            ) : (
-              <pre className={`p-6 text-sm font-mono h-full ${codingSettings.theme === 'dark' || codingSettings.theme === 'monokai' ? 'bg-slate-900 text-slate-300' : 'bg-white text-slate-700'}`}>
-                {selectedNote.content || 'Start typing to see preview...'}
-              </pre>
-            )}
           </div>
         </div>
       )}
