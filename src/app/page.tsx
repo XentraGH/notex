@@ -108,6 +108,7 @@ export default function NoteXApp() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showCodingSettings, setShowCodingSettings] = useState(false);
+  const [showNoteSettings, setShowNoteSettings] = useState(false);
   const [codingSettings, setCodingSettings] = useState<CodingSettings>({
     enabled: false,
     language: 'html',
